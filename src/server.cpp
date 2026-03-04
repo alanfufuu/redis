@@ -171,7 +171,9 @@ void Server::eventLoop() {
     std::cout << "Event loop started" << std::endl;
 
     while(true) {
-        std::vector<Event> events = event_loop_.poll(-1);
+        std::vector<Event> events = event_loop_.poll(100);
+
+        store_.activeExpire(20);
 
         for(const auto& event : events) {
             if(event.fd == server_fd_) {
