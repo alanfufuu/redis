@@ -1,0 +1,15 @@
+
+obj/
+redis-clone
+
+data/*.rdb
+
+*.o
+
+.DS_Store
+
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
