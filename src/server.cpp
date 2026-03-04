@@ -11,8 +11,12 @@
 #include "resp_serializer.h"
 #include "store.h"
 #include "command_handler.h"
+#include "thread_pool.h"
 
-Server::Server(int port) : port_(port), server_fd_(-1), command_handler_(store_) {}
+Server::Server(int port) : port_(port), 
+                           server_fd_(-1), 
+                           command_handler_(store_),
+                           thread_pool_(4) {}
 
 
 Server::~Server() {

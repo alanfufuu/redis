@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include "store.h"
 #include "command_handler.h"
+#include "thread_pool.h"
 
 class Server{
 public:
@@ -23,6 +24,7 @@ private:
     Store store_;
     CommandHandler command_handler_;
     std::unordered_map<int, std::unique_ptr<Connection>> connections_;
+    ThreadPool thread_pool_;
 
     void initSocket();
     void setNonBlocking(int fd);
