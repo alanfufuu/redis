@@ -2,8 +2,22 @@
 #include "resp_serializer.h"
 #include <algorithm>
 #include <sstream>
+#include "persistence.h"
 
-CommandHandler::CommandHandler(Store& store) : store_(store) {}
+CommandHandler::CommandHandler(Store& store)
+    : store_(store), persistence_(nullptr), thread_pool_(nullptr), metrics_(nullptr) {}
+
+void CommandHandler::setPersistence(Persistence* persistence) {
+    persistence_ = persistence;
+}
+
+void CommandHandler::setThreadPool(ThreadPool* pool) {
+    thread_pool_ = pool;
+}
+
+void CommandHandler::setMetrics(Metrics* metrics) {
+    metrics_ = metrics;
+}
 
 std::string CommandHandler::toUpper(const std::string& str) {
     std::string result = str;
@@ -39,6 +53,9 @@ std::string CommandHandler::execute(const RespCommand& cmd) {
     if (command == "ZCARD")   return handleZcard(cmd);
     if (command == "EXPIRE")  return handleExpire(cmd);
     if (command == "TTL")     return handleTtl(cmd);
+    if (command == "SAVE")    return handleSave(cmd);
+    if (command == "BGSAVE")  return handleBgsave(cmd);
+    if (command == "INFO")    return handleInfo(cmd);
 
     return RespSerializer::error("ERR unknown command '" + cmd.args[0] + "'");
 }
@@ -357,5 +374,63 @@ std::string CommandHandler::handleTtl(const RespCommand& cmd) {
 }
 
 
+std::string CommandHandler::handleSave(const RespCommand& cmd) {
+    (void)cmd;
+    if (!persistence_) {
+        return RespSerializer::error("ERR persistence not configured");
+    }
 
+    // Synchronous save — blocks the event loop
+    auto data = store_.snapshot();
+    bool success = persistence_->save(data);
 
+    if (success) {
+        return RespSerializer::ok();
+    }
+    return RespSerializer::error("ERR snapshot failed");
+}
+
+std::string CommandHandler::handleBgsave(const RespCommand& cmd) {
+    (void)cmd;
+    if (!persistence_ || !thread_pool_) {
+        return RespSerializer::error("ERR persistence or thread pool not configured");
+    }
+
+    auto data = std::make_shared<std::unordered_map<std::string, StoreValue>>(
+        store_.snapshot()
+    );
+
+    Persistence* pers = persistence_;
+    thread_pool_->submit([pers, data]() {
+        pers->save(*data);
+    });
+
+    return RespSerializer::simpleString("Background saving started");
+}
+
+std::string CommandHandler::handleInfo(const RespCommand& cmd) {
+    (void)cmd;
+    if (!metrics_) {
+        return RespSerializer::error("ERR metrics not configured");
+    }
+
+    auto snap = metrics_->takeSnapshot(static_cast<int64_t>(store_.size()));
+
+    std::string info;
+    info += "# Server\r\n";
+    info += "total_requests:" + std::to_string(snap.total_requests) + "\r\n";
+    info += "total_errors:" + std::to_string(snap.total_errors) + "\r\n";
+    info += "active_connections:" + std::to_string(snap.active_connections) + "\r\n";
+    info += "total_keys:" + std::to_string(snap.total_keys) + "\r\n";
+    info += "\r\n";
+    info += "# Latency (microseconds)\r\n";
+    info += "avg_latency_us:" + std::to_string(snap.avg_latency_us) + "\r\n";
+    info += "p50_latency_us:" + std::to_string(snap.p50_latency_us) + "\r\n";
+    info += "p95_latency_us:" + std::to_string(snap.p95_latency_us) + "\r\n";
+    info += "p99_latency_us:" + std::to_string(snap.p99_latency_us) + "\r\n";
+    info += "\r\n";
+    info += "# Throughput\r\n";
+    info += "requests_per_second:" + std::to_string(snap.requests_per_second) + "\r\n";
+
+    return RespSerializer::bulkString(info);
+}

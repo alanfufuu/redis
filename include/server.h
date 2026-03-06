@@ -9,6 +9,9 @@
 #include "store.h"
 #include "command_handler.h"
 #include "thread_pool.h"
+#include "persistence.h"
+#include "pg_client.h"
+#include "http_server.h"
 
 class Server{
 public:
@@ -25,6 +28,12 @@ private:
     CommandHandler command_handler_;
     std::unordered_map<int, std::unique_ptr<Connection>> connections_;
     ThreadPool thread_pool_;
+    Persistence persistence_;
+    Metrics metrics_;
+    std::unique_ptr<PgClient> pg_client_;
+    std::chrono::steady_clock::time_point last_metrics_flush_;
+    HttpServer http_server_;
+    std::chrono::steady_clock::time_point last_broadcast_;
 
     void initSocket();
     void setNonBlocking(int fd);
@@ -34,6 +43,7 @@ private:
     void handleWrite(int fd);
     void removeClient(int fd);
     void processCommands(Connection& conn);
+    void flushMetrics();
 
 
 };

@@ -9,6 +9,7 @@
 #include <vector>
 #include "sorted_set.h"
 #include <chrono>
+#include <shared_mutex>
 
 using StoreValue = std::variant<std::string, std::list<std::string>, SortedSet>;
 using TimePoint = std::chrono::steady_clock::time_point;
@@ -45,9 +46,15 @@ public:
     std::optional<std::vector<std::string>> zrange(const std::string& key, int64_t start, int64_t stop, bool with_scores = false);
     int64_t zcard(const std::string& key);
 
+    // snapshot
+    std::unordered_map<std::string, StoreValue> snapshot() const;
+
+    std::shared_mutex& getMutex();
+
 private:
     std::unordered_map<std::string, StoreValue> data_;
     std::unordered_map<std::string, TimePoint> expires_;
+    mutable std::shared_mutex mutex_;
 
     std::list<std::string>* getOrCreateList(const std::string& key, bool create, bool& type_error);
     SortedSet* getOrCreateSortedSet(const std::string& key, bool create, bool& type_error);

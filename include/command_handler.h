@@ -4,14 +4,26 @@
 #include "resp_parser.h"
 #include "store.h"
 #include <string>
+#include "persistence.h"
+#include "thread_pool.h"
+#include "metrics.h"
 
 class CommandHandler {
 public:
     CommandHandler(Store& store);
+
+    void setPersistence(Persistence* persistence);
+    void setThreadPool(ThreadPool* pool);
+
     std::string execute(const RespCommand& cmd);
+
+    void setMetrics(Metrics* metrics);
 
 private:
     Store& store_;
+    Persistence* persistence_;
+    ThreadPool* thread_pool_;
+    Metrics* metrics_;
 
     // string
     std::string handlePing(const RespCommand& cmd);
@@ -42,7 +54,14 @@ private:
     std::string handleExpire(const RespCommand& cmd);
     std::string handleTtl(const RespCommand& cmd);
 
+    std::string handleSave(const RespCommand& cmd);
+    std::string handleBgsave(const RespCommand& cmd);
+
     std::string toUpper(const std::string& str);
+
+    std::string handleInfo(const RespCommand& cmd);
+
+
 };
 
 #endif
