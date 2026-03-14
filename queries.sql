@@ -1,4 +1,4 @@
--- Throughput: requests per second over the last hour, bucketed by minute
+
 SELECT
     date_trunc('minute', recorded_at) AS minute,
     COUNT(*) / 60.0 AS rps
@@ -7,7 +7,7 @@ WHERE recorded_at > NOW() - INTERVAL '1 hour'
 GROUP BY minute
 ORDER BY minute;
 
--- Latency percentiles over the last hour
+
 SELECT
     PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY latency_us) AS p50,
     PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_us) AS p95,
@@ -17,7 +17,7 @@ SELECT
 FROM request_metrics
 WHERE recorded_at > NOW() - INTERVAL '1 hour';
 
--- Latency percentiles broken down by command
+
 SELECT
     command,
     COUNT(*) AS total,
@@ -29,7 +29,7 @@ WHERE recorded_at > NOW() - INTERVAL '1 hour'
 GROUP BY command
 ORDER BY total DESC;
 
--- Error rate over the last hour, bucketed by minute
+
 SELECT
     date_trunc('minute', recorded_at) AS minute,
     COUNT(*) AS total,
@@ -43,7 +43,7 @@ WHERE recorded_at > NOW() - INTERVAL '1 hour'
 GROUP BY minute
 ORDER BY minute;
 
--- Server health over time (from snapshots table)
+
 SELECT
     recorded_at,
     requests_per_second,
@@ -55,7 +55,7 @@ FROM server_snapshots
 WHERE recorded_at > NOW() - INTERVAL '1 hour'
 ORDER BY recorded_at;
 
--- Slowest commands in the last hour
+
 SELECT
     command,
     latency_us,

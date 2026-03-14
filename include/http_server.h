@@ -28,8 +28,6 @@ public:
     void handleRead(int fd);
     bool ownsfd(int fd) const;
     int getServerFd() const;
-
-    // Push metrics to all connected WebSocket clients
     void broadcastMetrics();
 
 private:
@@ -40,7 +38,7 @@ private:
     Store* store_;
     PgClient* pg_client_;
     std::unordered_map<int, std::unique_ptr<Connection>> connections_;
-    std::unordered_set<int> ws_clients_;  // fds that have upgraded to WebSocket
+    std::unordered_set<int> ws_clients_; 
 
     void setNonBlocking(int fd);
     void removeClient(int fd);

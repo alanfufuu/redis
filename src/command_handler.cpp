@@ -60,8 +60,6 @@ std::string CommandHandler::execute(const RespCommand& cmd) {
     return RespSerializer::error("ERR unknown command '" + cmd.args[0] + "'");
 }
 
-// ==================== Existing handlers (unchanged) ====================
-
 std::string CommandHandler::handlePing(const RespCommand& cmd) {
     if (cmd.args.size() > 1) {
         return RespSerializer::bulkString(cmd.args[1]);
@@ -89,7 +87,6 @@ std::string CommandHandler::handleGet(const RespCommand& cmd) {
         return RespSerializer::error("ERR wrong number of arguments for 'get' command");
     }
 
-    // Check if key exists but is wrong type
     if (store_.exists(cmd.args[1]) && store_.type(cmd.args[1]) != "string") {
         return RespSerializer::error("WRONGTYPE Operation against a key holding the wrong kind of value");
     }
@@ -135,7 +132,6 @@ std::string CommandHandler::handleType(const RespCommand& cmd) {
     return RespSerializer::simpleString(store_.type(cmd.args[1]));
 }
 
-// ==================== List handlers ====================
 
 std::string CommandHandler::handleLpush(const RespCommand& cmd) {
     if (cmd.args.size() < 3) {
@@ -166,7 +162,6 @@ std::string CommandHandler::handleLpop(const RespCommand& cmd) {
         return RespSerializer::error("ERR wrong number of arguments for 'lpop' command");
     }
 
-    // Check for WRONGTYPE
     if (store_.exists(cmd.args[1]) && store_.type(cmd.args[1]) != "list") {
         return RespSerializer::error("WRONGTYPE Operation against a key holding the wrong kind of value");
     }
@@ -207,7 +202,6 @@ std::string CommandHandler::handleLrange(const RespCommand& cmd) {
         return RespSerializer::error("ERR value is not an integer or out of range");
     }
 
-    // Check for WRONGTYPE
     if (store_.exists(cmd.args[1]) && store_.type(cmd.args[1]) != "list") {
         return RespSerializer::error("WRONGTYPE Operation against a key holding the wrong kind of value");
     }
@@ -217,7 +211,6 @@ std::string CommandHandler::handleLrange(const RespCommand& cmd) {
         return RespSerializer::error("WRONGTYPE Operation against a key holding the wrong kind of value");
     }
 
-    // Build an array of bulk strings
     std::vector<std::string> elements;
     for (const auto& val : result.value()) {
         elements.push_back(RespSerializer::bulkString(val));
@@ -239,7 +232,6 @@ std::string CommandHandler::handleLlen(const RespCommand& cmd) {
 
 
 std::string CommandHandler::handleZadd(const RespCommand& cmd) {
-    // ZADD key score1 member1 [score2 member2 ...]
     if (cmd.args.size() < 4 || (cmd.args.size() - 2) % 2 != 0) {
         return RespSerializer::error("ERR wrong number of arguments for 'zadd' command");
     }
@@ -263,7 +255,6 @@ std::string CommandHandler::handleZadd(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleZscore(const RespCommand& cmd) {
-    // ZSCORE key member
     if (cmd.args.size() < 3) {
         return RespSerializer::error("ERR wrong number of arguments for 'zscore' command");
     }
@@ -283,7 +274,6 @@ std::string CommandHandler::handleZscore(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleZrank(const RespCommand& cmd) {
-    // ZRANK key member
     if (cmd.args.size() < 3) {
         return RespSerializer::error("ERR wrong number of arguments for 'zrank' command");
     }
@@ -300,7 +290,6 @@ std::string CommandHandler::handleZrank(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleZrange(const RespCommand& cmd) {
-    // ZRANGE key start stop [WITHSCORES]
     if (cmd.args.size() < 4) {
         return RespSerializer::error("ERR wrong number of arguments for 'zrange' command");
     }
@@ -335,7 +324,6 @@ std::string CommandHandler::handleZrange(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleZcard(const RespCommand& cmd) {
-    // ZCARD key
     if (cmd.args.size() < 2) {
         return RespSerializer::error("ERR wrong number of arguments for 'zcard' command");
     }
@@ -348,7 +336,6 @@ std::string CommandHandler::handleZcard(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleExpire(const RespCommand& cmd) {
-    // EXPIRE key seconds → :1 if set, :0 if key doesn't exist
     if (cmd.args.size() < 3) {
         return RespSerializer::error("ERR wrong number of arguments for 'expire' command");
     }
@@ -365,7 +352,6 @@ std::string CommandHandler::handleExpire(const RespCommand& cmd) {
 }
 
 std::string CommandHandler::handleTtl(const RespCommand& cmd) {
-    // TTL key → seconds remaining, -1 if no TTL, -2 if key doesn't exist
     if (cmd.args.size() < 2) {
         return RespSerializer::error("ERR wrong number of arguments for 'ttl' command");
     }
@@ -380,7 +366,6 @@ std::string CommandHandler::handleSave(const RespCommand& cmd) {
         return RespSerializer::error("ERR persistence not configured");
     }
 
-    // Synchronous save — blocks the event loop
     auto data = store_.snapshot();
     bool success = persistence_->save(data);
 

@@ -100,7 +100,6 @@ void HttpServer::removeClient(int fd) {
     close(fd);
 }
 
-// ==================== HTTP Response Builders ====================
 
 std::string HttpServer::httpResponse(int status_code, const std::string& status_text,
                                       const std::string& body) {
@@ -125,7 +124,6 @@ std::string HttpServer::notFoundResponse() {
     return httpResponse(404, "Not Found", "{\"error\":\"not found\"}");
 }
 
-// ==================== Request Handling ====================
 
 void HttpServer::handleRead(int fd) {
     auto it = connections_.find(fd);
@@ -148,7 +146,6 @@ void HttpServer::handleRead(int fd) {
         return;
     }
 
-    // DEBUG: print what we received
     std::cout << "HTTP request received:\n" << buffer.substr(0, 200) << std::endl;
     std::cout << "Is upgrade? " << WebSocket::isUpgradeRequest(buffer) << std::endl;
 
@@ -173,7 +170,7 @@ void HttpServer::handleRead(int fd) {
 }
 
 std::string HttpServer::handleRequest(const std::string& raw_request) {
-    // Parse the first line: "GET /api/stats HTTP/1.1\r\n"
+
     size_t first_space = raw_request.find(' ');
     if (first_space == std::string::npos) return notFoundResponse();
 
@@ -184,7 +181,6 @@ std::string HttpServer::handleRequest(const std::string& raw_request) {
     std::string path = raw_request.substr(first_space + 1,
                                            second_space - first_space - 1);
 
-    // Handle CORS preflight
     if (method == "OPTIONS") {
         return httpResponse(204, "No Content", "");
     }
@@ -194,7 +190,6 @@ std::string HttpServer::handleRequest(const std::string& raw_request) {
                              "{\"error\":\"method not allowed\"}");
     }
 
-    // Route to handler
     if (path == "/health")       return jsonResponse(handleHealth());
     if (path == "/api/stats")    return jsonResponse(handleStats());
     if (path == "/api/latency")  return jsonResponse(handleLatency());
@@ -203,7 +198,6 @@ std::string HttpServer::handleRequest(const std::string& raw_request) {
     return notFoundResponse();
 }
 
-// ==================== Route Handlers ====================
 
 std::string HttpServer::handleHealth() {
     return "{\"status\":\"ok\"}";
@@ -251,7 +245,6 @@ std::string HttpServer::handleHistory() {
         return "{\"error\":\"database not available\",\"snapshots\":[]}";
     }
 
-    // Query the last 60 snapshots (5 minutes of data at 5-second intervals)
     PGresult* res = PQexec(pg_client_->getConnection(),
         "SELECT "
         "  EXTRACT(EPOCH FROM recorded_at)::bigint AS ts, "
@@ -308,15 +301,13 @@ void HttpServer::handleWebSocketFrame(int fd, Connection& conn) {
 
         conn.consumeReadBuffer(bytes_consumed);
 
-        // Empty payload with complete = close frame or error
         if (payload.empty()) {
             std::cout << "WebSocket client disconnected (fd=" << fd << ")" << std::endl;
             removeClient(fd);
             return;
         }
 
-        // We don't expect meaningful messages from the client
-        // but we could handle ping/pong or commands here
+
     }
 }
 
@@ -336,7 +327,6 @@ void HttpServer::broadcastMetrics() {
 
     std::string frame = WebSocket::encodeFrame(json.str());
 
-    // Send to all connected WebSocket clients
     std::vector<int> dead_clients;
     for (int fd : ws_clients_) {
         auto it = connections_.find(fd);
@@ -352,7 +342,6 @@ void HttpServer::broadcastMetrics() {
         }
     }
 
-    // Clean up dead clients
     for (int fd : dead_clients) {
         removeClient(fd);
     }

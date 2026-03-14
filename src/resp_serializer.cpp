@@ -26,7 +26,7 @@ std::string RespSerializer::nullBulkString() {
 }
 
 std::string RespSerializer::array(const std::vector<std::string>& elements) {
-    // *<count>\r\n followed by each element (already serialized)
+    // *<count>\r\n followed by each element, already serialized
     std::string result = "*" + std::to_string(elements.size()) + "\r\n";
     for (const auto& elem : elements) {
         result += elem;

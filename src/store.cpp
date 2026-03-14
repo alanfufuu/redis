@@ -4,7 +4,6 @@
 
 
 bool Store::checkExpired(const std::string& key) {
-    // NOTE: caller must already hold a write lock
     auto it = expires_.find(key);
     if (it == expires_.end()) return false;
 
@@ -17,9 +16,7 @@ bool Store::checkExpired(const std::string& key) {
     return false;
 }
 
-std::list<std::string>* Store::getOrCreateList(const std::string& key,
-                                                bool create, bool& type_error) {
-    // NOTE: caller must already hold appropriate lock
+std::list<std::string>* Store::getOrCreateList(const std::string& key, bool create, bool& type_error) {
     type_error = false;
     checkExpired(key);
 
@@ -38,8 +35,7 @@ std::list<std::string>* Store::getOrCreateList(const std::string& key,
     return &std::get<std::list<std::string>>(it->second);
 }
 
-SortedSet* Store::getOrCreateSortedSet(const std::string& key,
-                                        bool create, bool& type_error) {
+SortedSet* Store::getOrCreateSortedSet(const std::string& key, bool create, bool& type_error) {
     type_error = false;
     checkExpired(key);
 
@@ -111,7 +107,6 @@ std::string Store::type(const std::string& key) {
     return "unknown";
 }
 
-// ==================== TTL Operations ====================
 
 bool Store::expire(const std::string& key, int64_t seconds) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
@@ -323,7 +318,7 @@ int64_t Store::zcard(const std::string& key) {
 
 std::unordered_map<std::string, StoreValue> Store::snapshot() const {
     std::shared_lock<std::shared_mutex> lock(mutex_);
-    return data_;  // Returns a deep copy
+    return data_; // deep copy
 }
 
 std::shared_mutex& Store::getMutex() {

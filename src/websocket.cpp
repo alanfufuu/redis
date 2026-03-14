@@ -7,7 +7,6 @@
 #include <sstream>
 #include <algorithm>
 
-// The magic GUID defined in RFC 6455
 static const std::string WS_MAGIC_GUID = "258EAFA5-E914-47DA-95CA-5AB5DC11650A";
 
 static std::string base64Encode(const unsigned char* data, size_t len) {
@@ -28,15 +27,12 @@ static std::string base64Encode(const unsigned char* data, size_t len) {
 }
 
 std::string WebSocket::computeAcceptKey(const std::string& client_key) {
-    // Concatenate client key with magic GUID
     std::string combined = client_key + WS_MAGIC_GUID;
 
-    // SHA-1 hash
     unsigned char hash[SHA_DIGEST_LENGTH];
     SHA1(reinterpret_cast<const unsigned char*>(combined.c_str()),
          combined.size(), hash);
 
-    // Base64 encode
     return base64Encode(hash, SHA_DIGEST_LENGTH);
 }
 
@@ -56,10 +52,8 @@ std::string WebSocket::encodeFrame(const std::string& message) {
     std::string frame;
     size_t len = message.size();
 
-    // First byte: FIN bit (1) + opcode (0x1 = text)
     frame += static_cast<char>(0x81);
 
-    // Second byte: mask bit (0, server doesn't mask) + payload length
     if (len <= 125) {
         frame += static_cast<char>(len);
     } else if (len <= 65535) {
@@ -87,12 +81,11 @@ std::string WebSocket::decodeFrame(const std::string& buffer,
     uint8_t first_byte = static_cast<uint8_t>(buffer[0]);
     uint8_t second_byte = static_cast<uint8_t>(buffer[1]);
 
-    // Check for close frame (opcode 0x8)
     uint8_t opcode = first_byte & 0x0F;
     if (opcode == 0x8) {
         complete = true;
         bytes_consumed = buffer.size();
-        return "";  // Close frame
+        return "";  
     }
 
     bool masked = (second_byte & 0x80) != 0;
@@ -118,7 +111,6 @@ std::string WebSocket::decodeFrame(const std::string& buffer,
 
     if (buffer.size() < total_size) return "";
 
-    // Extract mask key
     uint8_t mask_key[4] = {0, 0, 0, 0};
     if (masked) {
         for (int i = 0; i < 4; i++) {
@@ -126,7 +118,6 @@ std::string WebSocket::decodeFrame(const std::string& buffer,
         }
     }
 
-    // Extract and unmask payload
     std::string payload(payload_len, '\0');
     size_t data_start = header_size + mask_size;
     for (uint64_t i = 0; i < payload_len; i++) {
@@ -139,7 +130,6 @@ std::string WebSocket::decodeFrame(const std::string& buffer,
 }
 
 bool WebSocket::isUpgradeRequest(const std::string& request) {
-    // Case-insensitive search for upgrade header
     std::string lower = request;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     return lower.find("upgrade: websocket") != std::string::npos;
@@ -149,7 +139,6 @@ std::string WebSocket::extractKey(const std::string& request) {
     std::string search = "Sec-WebSocket-Key: ";
     size_t pos = request.find(search);
     if (pos == std::string::npos) {
-        // Try lowercase
         search = "sec-websocket-key: ";
         pos = request.find(search);
         if (pos == std::string::npos) return "";

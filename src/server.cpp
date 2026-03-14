@@ -197,7 +197,6 @@ void Server::eventLoop() {
         store_.activeExpire(20);
         flushMetrics();
 
-        // Broadcast metrics to WebSocket clients every second
         auto now = std::chrono::steady_clock::now();
         auto broadcast_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
             now - last_broadcast_
@@ -234,21 +233,17 @@ void Server::flushMetrics() {
         now - last_metrics_flush_
     ).count();
 
-    // Flush every 5 seconds
     if (elapsed < 5) return;
     last_metrics_flush_ = now;
 
     if (!pg_client_ || !pg_client_->isConnected()) return;
 
-    // Take the snapshot on the main thread (fast)
     auto snapshot = std::make_shared<MetricsSnapshot>(
         metrics_.takeSnapshot(static_cast<int64_t>(store_.size()))
     );
 
-    // Skip if no requests since last flush
     if (snapshot->requests.empty()) return;
 
-    // Submit the slow database work to the thread pool
     PgClient* pg = pg_client_.get();
     thread_pool_.submit([pg, snapshot]() {
         pg->insertMetrics(snapshot->requests);

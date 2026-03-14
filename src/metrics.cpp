@@ -42,7 +42,6 @@ int64_t Metrics::getActiveConnections() const {
 }
 
 double Metrics::getCurrentRps() const {
-    // This is approximate — doesn't need the lock for a rough estimate
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         now - window_start_
@@ -62,9 +61,8 @@ MetricsSnapshot Metrics::takeSnapshot(int64_t total_keys) {
     std::vector<RequestMetric> requests;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        requests.swap(buffer_);  // O(1) — just swaps internal pointers
+        requests.swap(buffer_);
 
-        // Reset RPS window
         window_start_ = std::chrono::steady_clock::now();
         window_requests_ = 0;
     }
@@ -74,7 +72,6 @@ MetricsSnapshot Metrics::takeSnapshot(int64_t total_keys) {
     snap.active_connections = active_connections_.load();
     snap.total_keys = total_keys;
 
-    // Calculate percentiles from this batch
     if (requests.empty()) {
         snap.avg_latency_us = 0;
         snap.p50_latency_us = 0;
@@ -85,7 +82,6 @@ MetricsSnapshot Metrics::takeSnapshot(int64_t total_keys) {
         return snap;
     }
 
-    // Extract latencies and sort for percentile calculation
     std::vector<int64_t> latencies;
     latencies.reserve(requests.size());
     for (const auto& r : requests) {
@@ -93,11 +89,9 @@ MetricsSnapshot Metrics::takeSnapshot(int64_t total_keys) {
     }
     std::sort(latencies.begin(), latencies.end());
 
-    // Average
     double sum = std::accumulate(latencies.begin(), latencies.end(), 0.0);
     snap.avg_latency_us = sum / latencies.size();
 
-    // Percentiles using nearest-rank method
     auto percentile = [&](double p) -> double {
         size_t idx = static_cast<size_t>(p / 100.0 * latencies.size());
         if (idx >= latencies.size()) idx = latencies.size() - 1;
@@ -108,7 +102,6 @@ MetricsSnapshot Metrics::takeSnapshot(int64_t total_keys) {
     snap.p95_latency_us = percentile(95);
     snap.p99_latency_us = percentile(99);
 
-    // RPS for this batch
     if (requests.size() >= 2) {
         auto first = requests.front().timestamp;
         auto last = requests.back().timestamp;

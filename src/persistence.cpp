@@ -8,8 +8,6 @@ static const char* FOOTER = "EOF";
 
 Persistence::Persistence(const std::string& filepath) : filepath_(filepath) {}
 
-// ==================== Binary Write Helpers ====================
-
 void Persistence::writeUint8(std::ofstream& out, uint8_t val) {
     out.write(reinterpret_cast<const char*>(&val), sizeof(val));
 }
@@ -26,8 +24,6 @@ void Persistence::writeString(std::ofstream& out, const std::string& str) {
     writeUint32(out, static_cast<uint32_t>(str.size()));
     out.write(str.data(), str.size());
 }
-
-// ==================== Binary Read Helpers ====================
 
 uint8_t Persistence::readUint8(std::ifstream& in) {
     uint8_t val;
@@ -54,11 +50,8 @@ std::string Persistence::readString(std::ifstream& in) {
     return str;
 }
 
-// ==================== Save ====================
 
 bool Persistence::save(const std::unordered_map<std::string, StoreValue>& data) {
-    // Write to a temp file first, then rename.
-    // This prevents a half-written file if the server crashes mid-save.
     std::string temp_path = filepath_ + ".tmp";
 
     std::ofstream out(temp_path, std::ios::binary);
@@ -67,21 +60,17 @@ bool Persistence::save(const std::unordered_map<std::string, StoreValue>& data) 
         return false;
     }
 
-    // Header
     out.write(MAGIC, 8);
 
-    // Number of keys
     writeUint32(out, static_cast<uint32_t>(data.size()));
 
     for (const auto& [key, value] : data) {
         if (std::holds_alternative<std::string>(value)) {
-            // Type 0: string
             writeUint8(out, 0);
             writeString(out, key);
             writeString(out, std::get<std::string>(value));
 
         } else if (std::holds_alternative<std::list<std::string>>(value)) {
-            // Type 1: list
             writeUint8(out, 1);
             writeString(out, key);
 
@@ -92,14 +81,11 @@ bool Persistence::save(const std::unordered_map<std::string, StoreValue>& data) 
             }
 
         } else if (std::holds_alternative<SortedSet>(value)) {
-            // Type 2: sorted set
             writeUint8(out, 2);
             writeString(out, key);
 
             const auto& zset = std::get<SortedSet>(value);
-            // Get all members with scores using range
             auto members = zset.range(0, static_cast<int64_t>(zset.size()) - 1, true);
-            // members alternates: member, score, member, score, ...
             uint32_t count = static_cast<uint32_t>(members.size() / 2);
             writeUint32(out, count);
 
@@ -111,15 +97,10 @@ bool Persistence::save(const std::unordered_map<std::string, StoreValue>& data) 
         }
     }
 
-    // Footer
     out.write(FOOTER, 3);
     out.close();
 
-    // Atomic rename — this is the key to crash safety.
-    // If the server crashes during the write above, the temp file
-    // is incomplete but the old snapshot is untouched.
-    // rename() on POSIX is atomic — either the old file is fully
-    // replaced or nothing happens.
+
     std::filesystem::rename(temp_path, filepath_);
 
     std::cout << "Persistence: saved " << data.size() << " keys to "
@@ -128,7 +109,6 @@ bool Persistence::save(const std::unordered_map<std::string, StoreValue>& data) 
     return true;
 }
 
-// ==================== Load ====================
 
 bool Persistence::load(Store& store) {
     std::ifstream in(filepath_, std::ios::binary);
@@ -136,7 +116,6 @@ bool Persistence::load(Store& store) {
         return false;
     }
 
-    // Verify header
     char magic[8];
     in.read(magic, 8);
     if (std::string(magic, 8) != MAGIC) {
@@ -158,12 +137,10 @@ bool Persistence::load(Store& store) {
         std::string key = readString(in);
 
         if (type == 0) {
-            // String
             std::string value = readString(in);
             store.set(key, value);
 
         } else if (type == 1) {
-            // List — use RPUSH to maintain order
             uint32_t count = readUint32(in);
             std::vector<std::string> elements;
             for (uint32_t j = 0; j < count; j++) {
@@ -172,7 +149,6 @@ bool Persistence::load(Store& store) {
             store.rpush(key, elements);
 
         } else if (type == 2) {
-            // Sorted set
             uint32_t count = readUint32(in);
             std::vector<std::pair<double, std::string>> entries;
             for (uint32_t j = 0; j < count; j++) {

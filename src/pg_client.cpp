@@ -44,9 +44,6 @@ std::string PgClient::escape(const std::string& str) {
 bool PgClient::insertMetrics(const std::vector<RequestMetric>& metrics) {
     if (!isConnected() || metrics.empty()) return false;
 
-    // Build a single multi-row INSERT for efficiency.
-    // Instead of 500 individual INSERTs (500 round-trips),
-    // we send one INSERT with 500 value tuples (1 round-trip).
     std::ostringstream sql;
     sql << "INSERT INTO request_metrics (command, latency_us, success) VALUES ";
 
